@@ -1,14 +1,7 @@
-// clang-format off
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <cmocka.h>
-// clang-format on
-
 #include "backend/chunk.h"
 #include "frontend/compiler.h"
 #include "global.h"
+#include "test_common.h"
 #include "util/error.h"
 #include "util/memory.h"
 
@@ -42,12 +35,7 @@ static CompilationStatus compile(char const *const source_code) {
   assert_int_equal(chunk_get_instruction_line(&chunk, chunk_code_offset), expected_line)
 
 #define assert_opcode(expected_opcode) assert_int_equal(next_chunk_code_byte(), expected_opcode)
-#define assert_opcodes(...)                                                             \
-  do {                                                                                  \
-    OpCode const expected_opcodes[] = {__VA_ARGS__};                                    \
-    for (size_t i = 0; i < sizeof(expected_opcodes) / sizeof(expected_opcodes[0]); i++) \
-      assert_opcode(expected_opcodes[i]);                                               \
-  } while (0)
+#define assert_opcodes(...) APPLY_TO_EACH_ARG(assert_opcode, OpCode, __VA_ARGS__)
 
 static void assert_constant_instruction(Value const expected_constant) {
   uint32_t constant_index;
@@ -65,13 +53,21 @@ static void assert_constant_instruction(Value const expected_constant) {
   assert_int_equal(chunk.constants.values[chunk_constant_instruction_index], expected_constant);
   chunk_constant_instruction_index++;
 }
+#define assert_constant_instructions(...) APPLY_TO_EACH_ARG(assert_constant_instruction, Value, __VA_ARGS__)
 
-#define assert_constant_instructions(...)                                                   \
-  do {                                                                                      \
-    Value const expected_constants[] = {__VA_ARGS__};                                       \
-    for (size_t i = 0; i < sizeof(expected_constants) / sizeof(expected_constants[0]); i++) \
-      assert_constant_instruction(expected_constants[i]);                                   \
-  } while (0)
+// *---------------------------------------------*
+// *                  FIXTURES                   *
+// *---------------------------------------------*
+
+int group_setup(void **const _) {
+  g_source_file = "compiler_test";
+  g_static_err_stream = tmpfile();
+  if (g_static_err_stream == NULL) IO_ERROR("%s", strerror(errno));
+
+  chunk_init(&chunk);
+
+  return 0;
+}
 
 // *---------------------------------------------*
 // *                 TEST CASES                  *
@@ -232,12 +228,6 @@ static void test_grouping_expr(void **const _) {
 }
 
 int main(void) {
-  g_source_file = "compiler_test";
-  g_static_err_stream = tmpfile();
-  if (g_static_err_stream == NULL) IO_ERROR("%s", strerror(errno));
-
-  chunk_init(&chunk);
-
   struct CMUnitTest const tests[] = {
     cmocka_unit_test(test_unexpected_eof),
     cmocka_unit_test(test_line_tracking),
@@ -248,5 +238,5 @@ int main(void) {
     cmocka_unit_test(test_grouping_expr),
   };
 
-  return cmocka_run_group_tests(tests, NULL, NULL);
+  return cmocka_run_group_tests(tests, group_setup, NULL);
 }

@@ -1,11 +1,4 @@
-// clang-format off
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <cmocka.h>
-// clang-format on
-
+#include "test_common.h"
 #include "util/memory.h"
 
 // *---------------------------------------------*
